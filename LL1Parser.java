@@ -1,28 +1,31 @@
 import java.util.*;
 
-// --- MODIFICACIÓN 1: Crear una clase interna para el Token ---
+// --- MODIFICACIÓN 1: 'Token' ahora guarda su 'value' (valor) original ---
 /**
- * Pequeña clase interna para almacenar el tipo de token (ej. "d", "+")
- * y su posición (índice) en la cadena de entrada original.
+ * Almacena el tipo de token (ej. "d", "+"), su valor original (ej. "5", "+")
+ * y su posición en la cadena de entrada.
  */
 class Token {
-    final String type;
+    final String type;  // El tipo ("d", "+", "number", "(", etc.)
+    final String value; // El lexema o valor ("5", "+", "1.2", "(")
     final int position;
 
-    Token(String type, int position) {
+    Token(String type, String value, int position) {
         this.type = type;
+        this.value = value;
         this.position = position;
     }
 
     @Override
     public String toString() {
-        return type; // Esto permite que la impresión de la "Entrada" siga funcionando
+        // Al imprimir la "Entrada", ahora veremos el valor real, no solo el tipo
+        return value; 
     }
 }
 
 public class LL1Parser {
 
-    // --- (El resto de las variables de la clase no cambian) ---
+    // (Variables de la clase LL1Parser)
     private Map<String, Map<String, String>> table;
     private Set<String> terminals;
     private Set<String> nonTerminals;
@@ -31,17 +34,18 @@ public class LL1Parser {
     private final String EOF = "$";
 
     public LL1Parser() {
-        // (El constructor y initializeTable() no cambian en absoluto)
+        // 'd' sigue siendo el *tipo* de token para un dígito
         terminals = new HashSet<>(Arrays.asList("+", "-", "*", "/", "(", ")", ".", "d", EOF));
         nonTerminals = new HashSet<>(Arrays.asList(
             "Expr", "Expr'", "Term", "Term'", "Factor", 
             "Num", "Num_tail", "Digits", "Digits'"
         ));
-        initializeTable();
+        
+        initializeTable(); // La tabla sigue siendo la misma
     }
 
     private void initializeTable() {
-        // (Esta función es idéntica a la anterior)
+        // (Esta función es idéntica a la anterior, no la repetiré)
         table = new HashMap<>();
         Map<String, String> exprRules = new HashMap<>();
         exprRules.put("(", "Term Expr'");
@@ -104,99 +108,85 @@ public class LL1Parser {
     }
 
     /**
-     * --- MODIFICACIÓN 2: El Lexer ahora devuelve List<Token> ---
-     * Convierte la cadena de entrada en una lista de Tokens (tipo + posición).
+     * --- MODIFICACIÓN 2: 'tokenize' ahora guarda el valor del caracter ---
      */
     private List<Token> tokenize(String input) {
-        List<Token> tokens = new ArrayList<>(); // Ahora es una lista de Tokens
+        List<Token> tokens = new ArrayList<>();
         for (int i = 0; i < input.length(); i++) {
             char c = input.charAt(i);
+            String val = String.valueOf(c);
 
-            if (Character.isWhitespace(c)) {
-                continue; // Ignorar espacios en blanco
-            }
+            if (Character.isWhitespace(c)) continue;
+            
+            // El *tipo* es "d", pero el *valor* es el dígito real ("0", "1", "5", etc.)
             if (Character.isDigit(c)) {
-                tokens.add(new Token("d", i)); // Guardamos el tipo "d" y la posición i
+                tokens.add(new Token("d", val, i));
             } else if (c == '+') {
-                tokens.add(new Token("+", i));
+                tokens.add(new Token("+", val, i));
             } else if (c == '-') {
-                tokens.add(new Token("-", i));
+                tokens.add(new Token("-", val, i));
             } else if (c == '*') {
-                tokens.add(new Token("*", i));
+                tokens.add(new Token("*", val, i));
             } else if (c == '/') {
-                tokens.add(new Token("/", i));
+                tokens.add(new Token("/", val, i));
             } else if (c == '(') {
-                tokens.add(new Token("(", i));
+                tokens.add(new Token("(", val, i));
             } else if (c == ')') {
-                tokens.add(new Token(")", i));
+                tokens.add(new Token(")", val, i));
             } else if (c == '.') {
-                tokens.add(new Token(".", i));
+                tokens.add(new Token(".", val, i));
             } else {
-                // Error Léxico: Ya reporta la posición
                 System.out.println("Error Léxico: Caracter inválido '" + c + "' en la posición " + i);
                 tokens.clear();
-                tokens.add(new Token("ERROR", i)); // Token de error con posición
+                tokens.add(new Token("ERROR", val, i));
                 return tokens;
             }
         }
-        tokens.add(new Token(EOF, input.length())); // Añadir el token de fin de cadena
+        tokens.add(new Token(EOF, EOF, input.length()));
         return tokens;
     }
 
     /**
-     * --- MODIFICACIÓN 3: El Parser ahora usa List<Token> y reporta errores ---
+     * --- MODIFICACIÓN 3: 'parse' ahora devuelve List<Token> o null ---
      */
     public List<Token> parse(String input) {
         System.out.println("Analizando cadena: \"" + input + "\"\n");
         
-        // 1. Obtener la lista de tokens
         List<Token> tokens = tokenize(input);
-        if (tokens.get(0).type.equals("ERROR")) { // Comprobar si el lexer falló
+        if (tokens.get(0).type.equals("ERROR")) {
             System.out.println("Resultado: RECHAZADA (Error léxico)");
-            return null;
+            return null; // Devuelve null si falla
         }
 
-        // 2. Inicializar la Pila (sin cambios)
         Stack<String> stack = new Stack<>();
         stack.push(EOF);
         stack.push(START_SYMBOL);
-
-        // 3. Inicializar puntero de entrada (sin cambios)
         int inputPointer = 0;
-        boolean accepted = true;
 
-        // Imprimir encabezado (sin cambios)
         System.out.printf("%-45s | %-25s | %s\n", "PILA (tope a la derecha)", "ENTRADA (inicio a la izquierda)", "ACCION");
         System.out.println(new String(new char[100]).replace("\0", "-"));
 
-        // 4. Iniciar el ciclo del parser
         while (!stack.peek().equals(EOF)) {
             String stackTop = stack.peek();
-            
-            // --- MODIFICACIÓN: Obtener el token y su tipo ---
             Token currentTokenObj = tokens.get(inputPointer);
             String currentToken = currentTokenObj.type;
-            int currentPosition = currentTokenObj.position; // ¡Aquí está la posición!
+            int currentPosition = currentTokenObj.position;
 
-            // Imprimir el estado actual
             System.out.printf("%-45s | %-25s | ", formatStack(stack), formatInput(tokens, inputPointer));
 
-            // --- Escenario 1: El tope de la pila es un TERMINAL ---
             if (terminals.contains(stackTop)) {
                 if (stackTop.equals(currentToken)) {
-                    // ¡Coincidencia! (Match)
-                    System.out.println("Match: " + currentToken);
+                    System.out.println("Match: " + currentTokenObj.value); // Imprime el valor
                     stack.pop();
                     inputPointer++;
                 } else {
-                    // --- MODIFICACIÓN: Error de Mismatch (Incoherencia) ---
                     System.out.println("Error Sintáctico: Se esperaba '" + stackTop + "' pero se encontró '" + 
-                                       currentToken + "' en la posición " + currentPosition);
-                    accepted = false;
-                    break;
+                                       currentTokenObj.value + "' en la posición " + currentPosition);
+                    System.out.println(new String(new char[100]).replace("\0", "-"));
+                    System.out.println("\nResultado: RECHAZADA ❌");
+                    return null; // Devuelve null si falla
                 }
             } 
-            // --- Escenario 2: El tope de la pila es un NO-TERMINAL ---
             else if (nonTerminals.contains(stackTop)) {
                 String rule = null;
                 if (table.containsKey(stackTop) && table.get(stackTop).containsKey(currentToken)) {
@@ -204,15 +194,14 @@ public class LL1Parser {
                 }
 
                 if (rule == null) {
-                    // --- MODIFICACIÓN: Error de Token Inesperado (Celda vacía) ---
-                    System.out.println("Error Sintáctico: Token inesperado '" + currentToken + 
+                    System.out.println("Error Sintáctico: Token inesperado '" + currentTokenObj.value + 
                                        "' en la posición " + currentPosition + 
                                        " mientras se procesaba '" + stackTop + "'.");
-                    accepted = false;
-                    break;
+                    System.out.println(new String(new char[100]).replace("\0", "-"));
+                    System.out.println("\nResultado: RECHAZADA ❌");
+                    return null; // Devuelve null si falla
                 }
 
-                // Aplicar la regla (sin cambios)
                 System.out.println("Usar regla: " + stackTop + " -> " + rule);
                 stack.pop();
                 if (!rule.equals(EPSILON)) {
@@ -222,69 +211,292 @@ public class LL1Parser {
                     }
                 }
             } else {
-                // Error desconocido (sin cambios)
                 System.out.println("Error: Símbolo desconocido en la pila: " + stackTop);
-                accepted = false;
-                break;
+                System.out.println(new String(new char[100]).replace("\0", "-"));
+                System.out.println("\nResultado: RECHAZADA ❌");
+                return null; // Devuelve null si falla
             }
         } // Fin del while
 
         System.out.println(new String(new char[100]).replace("\0", "-"));
-
-        // --- 5. Resultado Final ---
-        // --- MODIFICACIÓN: Comprobar el *tipo* del token actual ---
-        if (accepted && tokens.get(inputPointer).type.equals(EOF) && stack.peek().equals(EOF)) {
+        
+        if (tokens.get(inputPointer).type.equals(EOF) && stack.peek().equals(EOF)) {
             System.out.printf("%-45s | %-25s | %s\n", formatStack(stack), formatInput(tokens, inputPointer), "¡Éxito!");
             System.out.println("\nResultado: ACEPTADA ✅");
-			return tokens;
+            return tokens; // ¡Éxito! Devuelve la lista de tokens
         } else {
-            System.out.println("\nResultado: RECHAZADA ❌");
-			return null;
+            System.out.println("\nResultado: RECHAZADA ❌ (final inesperado)");
+            return null; // Devuelve null si falla
         }
     }
 
-    // --- Métodos auxiliares ---
-    
-    // formatStack no cambia
+    // --- Métodos auxiliares de impresión (modificados para List<Token>) ---
     private String formatStack(Stack<String> stack) {
         return stack.toString();
     }
 
-    /**
-     * --- MODIFICACIÓN 4: formatInput ahora usa List<Token> ---
-     */
     private String formatInput(List<Token> tokens, int pointer) {
         StringBuilder sb = new StringBuilder();
         for (int i = pointer; i < tokens.size(); i++) {
-            sb.append(tokens.get(i).type).append(" "); // Usamos .type
+            sb.append(tokens.get(i).value).append(" "); // Usamos .value
         }
         return sb.toString();
     }
 
+    // --- PUNTO 2: CREADOR DEL ÁRBOL (AST) ---
+    // Esta clase interna toma la lista de tokens y la convierte en un árbol.
+    
+    // ... (Todo el código de LL1Parser va aquí arriba) ...
+
     /**
-     * Método main (sin cambios)
+     * --- PUNTO 2: CREADOR DEL ÁRBOL (AST) ---
+     * Esta clase interna toma la lista de tokens y la convierte en un árbol.
+     *
+     * --- MODIFICACIÓN: Métodos de impresión de árbol mejorados ---
+     */
+    public static class TreeBuilder {
+        
+        // --- Clases para los Nodos del Árbol ---
+        
+        // La interfaz ahora define dos métodos: uno público y uno auxiliar
+        interface ExprNode {
+            /** Inicia el proceso de impresión del árbol. */
+            String prettyPrint();
+            
+            /** * Método auxiliar recursivo para construir la cadena del árbol.
+             * @param buffer El StringBuilder para construir la salida.
+             * @param prefix El prefijo para la línea actual (ej. "└── ").
+             * @param childrenPrefix El prefijo para las líneas de los hijos (ej. "    ").
+             */
+            void prettyPrint(StringBuilder buffer, String prefix, String childrenPrefix);
+        }
+
+        class NumberNode implements ExprNode {
+            String value;
+            NumberNode(String value) { this.value = value; }
+            
+            public String prettyPrint() {
+                StringBuilder buffer = new StringBuilder();
+                prettyPrint(buffer, "", "");
+                return buffer.toString();
+            }
+
+            public void prettyPrint(StringBuilder buffer, String prefix, String childrenPrefix) {
+                buffer.append(prefix);
+                buffer.append(value);
+                buffer.append("\n");
+            }
+        }
+
+        class UnaryOpNode implements ExprNode {
+            String operator;
+            ExprNode child;
+            UnaryOpNode(String op, ExprNode child) { this.operator = op; this.child = child; }
+            
+            public String prettyPrint() {
+                StringBuilder buffer = new StringBuilder();
+                prettyPrint(buffer, "", "");
+                return buffer.toString();
+            }
+
+            public void prettyPrint(StringBuilder buffer, String prefix, String childrenPrefix) {
+                buffer.append(prefix);
+                buffer.append(operator);
+                buffer.append("\n");
+                // El hijo es el "último" (y único)
+                child.prettyPrint(buffer, childrenPrefix + "└── ", childrenPrefix + "    ");
+            }
+        }
+
+        class BinaryOpNode implements ExprNode {
+            String operator;
+            ExprNode left, right;
+            BinaryOpNode(ExprNode left, String op, ExprNode right) {
+                this.left = left; this.operator = op; this.right = right;
+            }
+
+            public String prettyPrint() {
+                StringBuilder buffer = new StringBuilder();
+                prettyPrint(buffer, "", "");
+                return buffer.toString();
+            }
+
+            public void prettyPrint(StringBuilder buffer, String prefix, String childrenPrefix) {
+                buffer.append(prefix);
+                buffer.append(operator);
+                buffer.append("\n");
+                // El hijo izquierdo (left) NO es el último, usa "tee"
+                left.prettyPrint(buffer, childrenPrefix + "├── ", childrenPrefix + "│   ");
+                // El hijo derecho (right) SÍ es el último, usa "corner"
+                right.prettyPrint(buffer, childrenPrefix + "└── ", childrenPrefix + "    ");
+            }
+        }
+        
+        // --- Lógica del Parser de Árbol (Descenso Recursivo) ---
+        // (Toda esta parte es idéntica a la versión anterior)
+        // (build(), expr(), expr_prime(), term(), term_prime(), factor(), ...)
+        // ...
+        
+        // --- (Copiar y pegar todo el resto de la clase TreeBuilder aquí) ---
+        // --- (num(), num_tail(), digits(), digits_prime()) ---
+
+        // (El resto de la clase TreeBuilder no cambia)
+        // ... (resto de los métodos de TreeBuilder) ...
+        
+        private List<Token> tokens;
+        private int position;
+
+        public TreeBuilder(List<Token> tokens) {
+            this.tokens = tokens;
+            this.position = 0;
+        }
+
+        private Token peek() { return tokens.get(position); }
+        private Token consume() { return tokens.get(position++); }
+        private Token match(String type) {
+            if (peek().type.equals(type)) {
+                return consume();
+            }
+            throw new RuntimeException("Error de construcción de árbol: Se esperaba " + type + " pero se encontró " + peek().type);
+        }
+
+        public ExprNode build() {
+            try {
+                return expr();
+            } catch (Exception e) {
+                System.out.println("Error durante la construcción del árbol: " + e.getMessage());
+                e.printStackTrace();
+                return null;
+            }
+        }
+
+        private ExprNode expr() {
+            ExprNode leftNode = term();
+            return expr_prime(leftNode);
+        }
+
+        private ExprNode expr_prime(ExprNode leftNode) {
+            if (peek().type.equals("+")) {
+                Token op = consume();
+                ExprNode rightNode = term();
+                return expr_prime(new BinaryOpNode(leftNode, op.value, rightNode));
+            }
+            if (peek().type.equals("-")) {
+                Token op = consume();
+                ExprNode rightNode = term();
+                return expr_prime(new BinaryOpNode(leftNode, op.value, rightNode));
+            }
+            return leftNode;
+        }
+
+        private ExprNode term() {
+            ExprNode leftNode = factor();
+            return term_prime(leftNode);
+        }
+
+        private ExprNode term_prime(ExprNode leftNode) {
+            if (peek().type.equals("*")) {
+                Token op = consume();
+                ExprNode rightNode = factor();
+                return term_prime(new BinaryOpNode(leftNode, op.value, rightNode));
+            }
+            if (peek().type.equals("/")) {
+                Token op = consume();
+                ExprNode rightNode = factor();
+                return term_prime(new BinaryOpNode(leftNode, op.value, rightNode));
+            }
+            return leftNode;
+        }
+
+        private ExprNode factor() {
+            if (peek().type.equals("(")) {
+                consume();
+                ExprNode node = expr();
+                match(")");
+                return node;
+            }
+            if (peek().type.equals("-")) {
+                Token op = consume();
+                ExprNode child = factor();
+                return new UnaryOpNode(op.value, child);
+            }
+            return num();
+        }
+        
+        private ExprNode num() {
+            String numStr = "";
+            if (peek().type.equals(".")) {
+                numStr += consume().value;
+                numStr += digits();
+            } else {
+                numStr += digits();
+                numStr += num_tail();
+            }
+            return new NumberNode(numStr);
+        }
+
+        private String num_tail() {
+            if (peek().type.equals(".")) {
+                String val = consume().value;
+                val += digits();
+                return val;
+            }
+            return "";
+        }
+        
+        private String digits() {
+            Token d = match("d");
+            return d.value + digits_prime();
+        }
+
+        private String digits_prime() {
+            if (peek().type.equals("d")) {
+                Token d = consume();
+                return d.value + digits_prime();
+            }
+            return "";
+        }
+
+    } // --- Fin de la clase TreeBuilder ---
+
+
+    /**
+     * Método main modificado para construir el árbol si el análisis es exitoso.
      */
     public static void main(String[] args) {
         LL1Parser parser = new LL1Parser();
         Scanner scanner = new Scanner(System.in);
         
-        System.out.println("--- Analizador Sintáctico LL(1) para Expresiones ---");
-        System.out.println("Gramática usa 'd' para cualquier dígito.");
-        System.out.println("Ejemplos válidos: 1.2+3  |  (12*3)-.4  |  -5/(2+1)");
+        System.out.println("--- Analizador Sintáctico LL(1) y Constructor de Árbol ---");
+		System.out.println("Ejemplos válidos: 1.2+3  |  (12*3)-.4  |  -5/(2+1)");
         System.out.println("Escriba una 'palabra' (expresión) o 'salir' para terminar:");
 
         while(true) {
             System.out.print("\n> ");
             String input = scanner.nextLine();
             
-            if (input.equalsIgnoreCase("salir")) {
-                break;
-            }
-            if (input.trim().isEmpty()) {
-                continue;
-            }
+            if (input.equalsIgnoreCase("salir")) break;
+            if (input.trim().isEmpty()) continue;
             
-            parser.parse(input);
+            // 1. Validar y obtener tokens
+            List<Token> tokens = parser.parse(input);
+            
+            // 2. Si la validación fue exitosa, construir el árbol
+            if (tokens != null) {
+                System.out.println("\nConstruyendo Árbol de Operaciones (AST)...");
+                // Recuerda que TreeBuilder y ExprNode son estáticas internas
+                TreeBuilder builder = new TreeBuilder(tokens);
+                TreeBuilder.ExprNode tree = builder.build();
+                
+                if (tree != null) {
+                    System.out.println("--- Árbol Generado ---");
+                    // --- MODIFICACIÓN: Llamada al nuevo método de impresión ---
+                    System.out.print(tree.prettyPrint());
+                    System.out.println("----------------------");
+                } else {
+                    System.out.println("Fallo en la construcción del árbol.");
+                }
+            }
         }
         
         scanner.close();

@@ -35,8 +35,8 @@ public class LL1Parser {
 
     public LL1Parser() {
         // 'd' sigue siendo el *tipo* de token para un dígito
-        terminals = new HashSet<>(Arrays.asList("+", "-", "*", "/", "(", ")", ".", "d", EOF));
-        nonTerminals = new HashSet<>(Arrays.asList(
+        terminals = new HashSet<String>(Arrays.asList("+", "-", "*", "/", "(", ")", ".", "d", EOF));
+        nonTerminals = new HashSet<String>(Arrays.asList(
             "Expr", "Expr'", "Term", "Term'", "Factor", 
             "Num", "Num_tail", "Digits", "Digits'"
         ));
@@ -46,26 +46,28 @@ public class LL1Parser {
 
     private void initializeTable() {
         // (Esta función es idéntica a la anterior, no la repetiré)
-        table = new HashMap<>();
-        Map<String, String> exprRules = new HashMap<>();
+        
+        // --- CAMBIOS AQUÍ: Especificación completa de tipos genéricos ---
+        table = new HashMap<String, Map<String, String>>();
+        Map<String, String> exprRules = new HashMap<String, String>();
         exprRules.put("(", "Term Expr'");
         exprRules.put("-", "Term Expr'");
         exprRules.put(".", "Term Expr'");
         exprRules.put("d", "Term Expr'");
         table.put("Expr", exprRules);
-        Map<String, String> exprPRules = new HashMap<>();
+        Map<String, String> exprPRules = new HashMap<String, String>();
         exprPRules.put("+", "+ Term Expr'"); 
         exprPRules.put("-", "- Term Expr'"); 
         exprPRules.put(")", EPSILON);         
         exprPRules.put(EOF, EPSILON);         
         table.put("Expr'", exprPRules);
-        Map<String, String> termRules = new HashMap<>();
+        Map<String, String> termRules = new HashMap<String, String>();
         termRules.put("(", "Factor Term'");
         termRules.put("-", "Factor Term'");
         termRules.put(".", "Factor Term'");
         termRules.put("d", "Factor Term'");
         table.put("Term", termRules);
-        Map<String, String> termPRules = new HashMap<>();
+        Map<String, String> termPRules = new HashMap<String, String>();
         termPRules.put("+", EPSILON);         
         termPRules.put("-", EPSILON);         
         termPRules.put("*", "* Factor Term'");
@@ -73,17 +75,17 @@ public class LL1Parser {
         termPRules.put(")", EPSILON);         
         termPRules.put(EOF, EPSILON);         
         table.put("Term'", termPRules);
-        Map<String, String> factorRules = new HashMap<>();
+        Map<String, String> factorRules = new HashMap<String, String>();
         factorRules.put("(", "( Expr )");    
         factorRules.put("-", "- Factor");    
         factorRules.put(".", "Num");         
         factorRules.put("d", "Num");         
         table.put("Factor", factorRules);
-        Map<String, String> numRules = new HashMap<>();
+        Map<String, String> numRules = new HashMap<String, String>();
         numRules.put(".", ". Digits");             
         numRules.put("d", "d Digits' Num_tail"); 
         table.put("Num", numRules);
-        Map<String, String> numTailRules = new HashMap<>();
+        Map<String, String> numTailRules = new HashMap<String, String>();
         numTailRules.put(".", ". Digits");     
         numTailRules.put("+", EPSILON);      
         numTailRules.put("-", EPSILON);      
@@ -92,10 +94,10 @@ public class LL1Parser {
         numTailRules.put(")", EPSILON);      
         numTailRules.put(EOF, EPSILON);      
         table.put("Num_tail", numTailRules);
-        Map<String, String> digitsRules = new HashMap<>();
+        Map<String, String> digitsRules = new HashMap<String, String>();
         digitsRules.put("d", "d Digits'");     
         table.put("Digits", digitsRules);
-        Map<String, String> digitsPRules = new HashMap<>();
+        Map<String, String> digitsPRules = new HashMap<String, String>();
         digitsPRules.put("d", "d Digits'");    
         digitsPRules.put("+", EPSILON);      
         digitsPRules.put("-", EPSILON);      
@@ -105,13 +107,15 @@ public class LL1Parser {
         digitsPRules.put(".", EPSILON);      
         digitsPRules.put(EOF, EPSILON);      
         table.put("Digits'", digitsPRules);
+        // --- FIN DE LOS CAMBIOS EN initializeTable ---
     }
 
     /**
      * --- MODIFICACIÓN 2: 'tokenize' ahora guarda el valor del caracter ---
      */
     private List<Token> tokenize(String input) {
-        List<Token> tokens = new ArrayList<>();
+        // --- CAMBIO AQUÍ ---
+        List<Token> tokens = new ArrayList<Token>();
         for (int i = 0; i < input.length(); i++) {
             char c = input.charAt(i);
             String val = String.valueOf(c);
@@ -158,7 +162,8 @@ public class LL1Parser {
             return null; // Devuelve null si falla
         }
 
-        Stack<String> stack = new Stack<>();
+        // --- CAMBIO AQUÍ ---
+        Stack<String> stack = new Stack<String>();
         stack.push(EOF);
         stack.push(START_SYMBOL);
         int inputPointer = 0;
@@ -253,7 +258,7 @@ public class LL1Parser {
         // --- Clases para los Nodos del Árbol ---
         
         // La interfaz ahora define dos métodos: uno público y uno auxiliar
-        interface ExprNode {
+        public static interface ExprNode {
             /** Inicia el proceso de impresión del árbol. */
             String prettyPrint();
             

@@ -243,17 +243,11 @@ public class LL1Parser {
         return sb.toString();
     }
 
-    // --- PUNTO 2: CREADOR DEL ÁRBOL (AST) ---
-    // Esta clase interna toma la lista de tokens y la convierte en un árbol.
-    
-    // ... (Todo el código de LL1Parser va aquí arriba) ...
-
-    /**
+/*
      * --- PUNTO 2: CREADOR DEL ÁRBOL (AST) ---
      * Esta clase interna toma la lista de tokens y la convierte en un árbol.
-     *
-     * --- MODIFICACIÓN: Métodos de impresión de árbol mejorados ---
-     */
+*/
+
     public static class TreeBuilder {
         
         // --- Clases para los Nodos del Árbol ---
@@ -271,7 +265,7 @@ public class LL1Parser {
             void prettyPrint(StringBuilder buffer, String prefix, String childrenPrefix);
         }
 
-        class NumberNode implements ExprNode {
+        static class NumberNode implements ExprNode {
             String value;
             NumberNode(String value) { this.value = value; }
             
@@ -288,7 +282,7 @@ public class LL1Parser {
             }
         }
 
-        class UnaryOpNode implements ExprNode {
+        static class UnaryOpNode implements ExprNode {
             String operator;
             ExprNode child;
             UnaryOpNode(String op, ExprNode child) { this.operator = op; this.child = child; }
@@ -308,7 +302,7 @@ public class LL1Parser {
             }
         }
 
-        class BinaryOpNode implements ExprNode {
+        static class BinaryOpNode implements ExprNode {
             String operator;
             ExprNode left, right;
             BinaryOpNode(ExprNode left, String op, ExprNode right) {
@@ -333,15 +327,8 @@ public class LL1Parser {
         }
         
         // --- Lógica del Parser de Árbol (Descenso Recursivo) ---
-        // (Toda esta parte es idéntica a la versión anterior)
         // (build(), expr(), expr_prime(), term(), term_prime(), factor(), ...)
-        // ...
         
-        // --- (Copiar y pegar todo el resto de la clase TreeBuilder aquí) ---
-        // --- (num(), num_tail(), digits(), digits_prime()) ---
-
-        // (El resto de la clase TreeBuilder no cambia)
-        // ... (resto de los métodos de TreeBuilder) ...
         
         private List<Token> tokens;
         private int position;
@@ -360,7 +347,7 @@ public class LL1Parser {
             throw new RuntimeException("Error de construcción de árbol: Se esperaba " + type + " pero se encontró " + peek().type);
         }
 
-        public ExprNode build() {
+         public ExprNode build() {
             try {
                 return expr();
             } catch (Exception e) {
@@ -444,7 +431,7 @@ public class LL1Parser {
             return "";
         }
         
-        private String digits() {
+        private  String digits() {
             Token d = match("d");
             return d.value + digits_prime();
         }
